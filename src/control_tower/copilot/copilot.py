@@ -10,6 +10,35 @@ from control_tower.schemas import (
     ResolutionRecommendation,
 )
 from typing import Literal, Optional
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+
+def _build_resolve_input(state: dict) -> dict:
+    """Map the accumulated state into the keys resolve_chain expects."""
+    c = state["classification"]
+    return {
+        "issue_type": c.issue_type,
+        "urgency": c.urgency,
+        "context": state["context"],
+        "policies": state["policies"],
+        "message": state["message"],
+    }
+
+
+# The Phase 1 reasoning flow as a single composable Runnable.
+# Input: {"order_id", "message"} → output: a state dict with everything assembled.
+recommend_pipeline = (
+    RunnablePassthrough.assign(
+        classification = classify_chain,
+        context = RunnableLambda(lambda s: retrieve_context(s["order_id"])),
+    )
+    | RunnablePassthrough.assign(
+        policies=RunnableLambda(lambda s: retrieve_policies(s["classification"].issue_type)),
+    )
+    | RunnablePassthrough.assign(
+        recommendation=RunnableLambda(_build_resolve_input) | resolve_chain,
+    )
+)
+
 
 class ResolutionCopilot:
     """Phase 1: classify → investigate → recommend. A human approves every action."""
@@ -22,27 +51,14 @@ class ResolutionCopilot:
     @traceable(name="recommend_resolution", run_type="chain")
     def recommend(self, ticket_id: str, order_id: str, message: str) -> CopilotResult:
         try:
-            classification = classify_chain.invoke({"message": message})
-
-            context = retrieve_context(order_id)
-            policies = retrieve_policies(classification.issue_type)
-
-            recommendation = resolve_chain.invoke(
-                {
-                    "issue_type": classification.issue_type,
-                    "urgency": classification.urgency,
-                    "context": context,
-                    "policies": policies,
-                    "message": message,
-                }
-            )
-
+            
+            state = recommend_pipeline.invoke({"order_id": order_id, "message": message})
             return CopilotResult(
                 ticket_id=ticket_id,
-                classification=classification,
-                recommendation=recommendation,
+                classification=state["classification"],
+                recommendation=state["recommendation"],
                 requires_human_approval=True,   # Phase 1: always
-                gate_reason=evaluate_gate(context, recommendation),
+                gate_reason=evaluate_gate(state["context"], state["recommendation"]),
             )
         except Exception as e:
             # Graceful degradation: hand the ticket to a human instead of crashing.
