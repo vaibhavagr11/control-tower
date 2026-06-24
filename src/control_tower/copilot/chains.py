@@ -32,7 +32,7 @@ resolver_llm = ChatOpenAI(
     model=RESOLVER_MODEL,
     api_key=OPENROUTER_API_KEY,
     base_url=OPENROUTER_BASE_URL,
-    reasoning_effort="medium",        # more thinking for policy + fraud judgment
+    reasoning_effort="low",        
 ).with_structured_output(ResolutionRecommendation)
 
 resolver_prompt = ChatPromptTemplate.from_messages(
