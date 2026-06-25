@@ -1,6 +1,9 @@
 from functools import lru_cache
 from langchain_chroma import Chroma
 from control_tower.policies.ingest import CHROMA_DIR, COLLECTION, get_embeddings
+from langchain_openai import ChatOpenAI
+from langchain_classic.retrievers.multi_query import MultiQueryRetriever
+from control_tower.config import CLASSIFIER_MODEL, OPENROUTER_API_KEY, OPENROUTER_BASE_URL
 
 @lru_cache(maxsize=1)
 def _get_vectorstore() -> Chroma:
@@ -11,22 +14,42 @@ def _get_vectorstore() -> Chroma:
         persist_directory=str(CHROMA_DIR),
     )
 
-def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.25, policy_type: str | None = None,) -> str:
-    """Retrieve the most relevant ACTIVE policy passages above a relevance threshold."""
-    # Hard constraints (metadata filter): only active policies, optionally one type.
+@lru_cache(maxsize=1)
+def _get_query_llm() -> ChatOpenAI:
+    """Cheap model used only to generate alternate phrasings of the query."""
+    return ChatOpenAI(
+        model=CLASSIFIER_MODEL,
+        api_key=OPENROUTER_API_KEY,
+        base_url=OPENROUTER_BASE_URL,
+    )
+
+
+def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.30, policy_type: str | None = None,) -> str:
+    """Multi-query retrieval over active policies, above a relevance threshold."""    
     conditions = [{"status": "active"}]
     if policy_type:
         conditions.append({"policy_type": policy_type})
     where = conditions[0] if len(conditions) == 1 else {"$and": conditions}
-    retriever = _get_vectorstore().as_retriever(
+
+    # Base retriever: your tuned threshold + metadata filter.
+    base = _get_vectorstore().as_retriever(
         search_type="similarity_score_threshold",
         search_kwargs={"k": k, "score_threshold": score_threshold, "filter": where},
     )
+
+    # Multi-query: LLM rephrases the query N ways, retrieves each, unions results.
+    retriever = MultiQueryRetriever.from_llm(retriever=base, llm=_get_query_llm())
+    
     results = retriever.invoke(query)
     if not results:
         return "(no matching policy found)"
-    blocks = []
+    
+    blocks, seen = [], set()
     for d in results:
+        key = (d.metadata.get("doc_id"), d.page_content[:60])
+        if key in seen:
+            continue
+        seen.add(key)
         cite = d.metadata.get("doc_id") or d.metadata.get("source", "").split("/")[-1]
         blocks.append(f"[{cite}]\n{d.page_content.strip()}")
     return "\n\n".join(blocks)
