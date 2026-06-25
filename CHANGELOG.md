@@ -2,6 +2,15 @@
 
 All notable changes to the Customer Operations Control Tower, one phase at a time.
 
+## [Phase 1.1] - Policy RAG
+### Added
+- PDF policy documents + ingestion pipeline (load → chunk → embed → Chroma)
+- Local sentence-transformers embeddings (no API key)
+- Semantic policy retrieval replacing the hardcoded rules dict
+### Notes
+- Backlog: structure-aware chunking (UnstructuredPDFLoader + MarkdownHeaderTextSplitter)
+- Backlog: migrate off deprecated langchain-community PyPDFLoader
+
 ## [Phase 1] - Reactive Resolution Copilot
 ### Added
 - Pydantic schemas: IssueClassification, ResolutionRecommendation, CopilotResult
