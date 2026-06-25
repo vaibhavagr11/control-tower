@@ -10,6 +10,8 @@ All notable changes to the Customer Operations Control Tower, one phase at a tim
 ### Notes
 - Backlog: structure-aware chunking (UnstructuredPDFLoader + MarkdownHeaderTextSplitter)
 - Backlog: migrate off deprecated langchain-community PyPDFLoader
+- Backlog: header-aware chunking to keep related rules (REFUND-LOWVAL + REPLACE-PREFERRED) in one chunk — improves recall without lowering the threshold.
+
 
 ## [Phase 1] - Reactive Resolution Copilot
 ### Added
