@@ -1,20 +1,23 @@
-POLICIES = {
-    "REFUND-LOWVAL": "Orders under $100 marked 'delivered' but reported not received may be "
-                     "refunded or replaced automatically when the customer has a clean claim history.",
-    "REPLACE-PREFERRED": "For 'delivered not received' on items under $150, a replacement is "
-                         "preferred over a refund to preserve revenue.",
-    "FRAUD-REVIEW": "Orders over $150, OR customers with 3+ prior refund claims, OR accounts younger "
-                    "than 30 days must be escalated to a human for fraud review before any refund.",
-    "DELAY-COMP": "For carrier delays beyond 7 days, offer goodwill store credit and a proactive "
-                  "status update; do not refund unless the customer requests cancellation.",
-}
+from functools import lru_cache
+from langchain_chroma import Chroma
+from control_tower.policies.ingest import CHROMA_DIR, COLLECTION, get_embeddings
 
+@lru_cache(maxsize=1)
+def _get_vectorstore() -> Chroma:
+    """Open the persisted Chroma index for querying (built by ingest.py)."""
+    return Chroma(
+        collection_name=COLLECTION,
+        embedding_function=get_embeddings(),
+        persist_directory=str(CHROMA_DIR),
+    )
 
-def retrieve_policies(issue_type: str) -> dict:
-    """Return the policy rules relevant to a given issue type."""
-    relevant = {
-        "delivery_not_received": ["REFUND-LOWVAL", "REPLACE-PREFERRED", "FRAUD-REVIEW"],
-        "delivery_delayed":      ["DELAY-COMP", "FRAUD-REVIEW"],
-        "refund_request":        ["REFUND-LOWVAL", "FRAUD-REVIEW"],
-    }.get(issue_type, ["FRAUD-REVIEW"])
-    return {rule_id: POLICIES[rule_id] for rule_id in relevant if rule_id in POLICIES}
+def retrieve_policies(query: str, k: int = 3) -> str:
+    """Return the top-k most relevant policy passages for a natural-language query."""
+    results = _get_vectorstore().similarity_search(query, k=k)
+    if not results:
+        return "(no matching policy found)"
+    blocks = []
+    for d in results:
+        source = d.metadata.get("source", "").split("/")[-1]
+        blocks.append(f"[{source}]\n{d.page_content.strip()}")
+    return "\n\n".join(blocks)

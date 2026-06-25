@@ -32,7 +32,7 @@ recommend_pipeline = (
         context = RunnableLambda(lambda s: retrieve_context(s["order_id"])),
     )
     | RunnablePassthrough.assign(
-        policies=RunnableLambda(lambda s: retrieve_policies(s["classification"].issue_type)),
+        policies=RunnableLambda(lambda s: retrieve_policies(f"{s['classification'].issue_type}: {s['message']}")),
     )
     | RunnablePassthrough.assign(
         recommendation=RunnableLambda(_build_resolve_input) | resolve_chain,

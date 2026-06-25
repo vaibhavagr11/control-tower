@@ -18,3 +18,6 @@ RESOLVER_MODEL   = "openai/gpt-5.4-mini"   # stronger: policy + fraud reasoning
 
 # -- Guardrail thresholds (used in the human-approval gate, Step 6) --
 HIGH_VALUE_THRESHOLD_USD = 150.0
+
+# -- Embeddings (local, no API key — runs via sentence-transformers) --
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
