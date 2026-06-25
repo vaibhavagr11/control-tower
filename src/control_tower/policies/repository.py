@@ -11,13 +11,22 @@ def _get_vectorstore() -> Chroma:
         persist_directory=str(CHROMA_DIR),
     )
 
-def retrieve_policies(query: str, k: int = 3) -> str:
-    """Return the top-k most relevant policy passages for a natural-language query."""
-    results = _get_vectorstore().similarity_search(query, k=k)
+def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.25, policy_type: str | None = None,) -> str:
+    """Retrieve the most relevant ACTIVE policy passages above a relevance threshold."""
+    # Hard constraints (metadata filter): only active policies, optionally one type.
+    conditions = [{"status": "active"}]
+    if policy_type:
+        conditions.append({"policy_type": policy_type})
+    where = conditions[0] if len(conditions) == 1 else {"$and": conditions}
+    retriever = _get_vectorstore().as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={"k": k, "score_threshold": score_threshold, "filter": where},
+    )
+    results = retriever.invoke(query)
     if not results:
         return "(no matching policy found)"
     blocks = []
     for d in results:
-        source = d.metadata.get("source", "").split("/")[-1]
-        blocks.append(f"[{source}]\n{d.page_content.strip()}")
+        cite = d.metadata.get("doc_id") or d.metadata.get("source", "").split("/")[-1]
+        blocks.append(f"[{cite}]\n{d.page_content.strip()}")
     return "\n\n".join(blocks)

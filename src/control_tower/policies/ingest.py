@@ -12,12 +12,23 @@ POLICY_DIR = Path(__file__).resolve().parents[3] / "data" / "policies"
 CHROMA_DIR = Path(__file__).resolve().parents[3] / ".chroma"
 COLLECTION = "policies"
 
+# Business metadata per policy doc — enables filtering + richer citations.
+POLICY_META = {
+    "Refund_and_Replacement_Policy.pdf":   {"doc_id": "POL-CX-001", "policy_type": "refund", "version": "1.0", "status": "active"},
+    "Shipping_Delay_Compensation_Policy.pdf": {"doc_id": "POL-CX-002", "policy_type": "delay",  "version": "1.0", "status": "active"},
+    "Fraud_Review_Policy.pdf":             {"doc_id": "POL-CX-003", "policy_type": "fraud",  "version": "1.0", "status": "active"},
+}
+
+
 def load_policy_documents() -> list:
-    """Load every policy PDF into LangChain Document objects (one per page)."""
+    """Load every policy PDF into LangChain Document objects (one per page), enriched with business metadata."""
     docs = []
     for pdf_path in sorted(POLICY_DIR.glob("*.pdf")):
-        loader = PyPDFLoader(str(pdf_path))
-        docs.extend(loader.load())
+        extra = POLICY_META.get(pdf_path.name, {})
+        loader = PyPDFLoader(str(pdf_path)).load()
+        for d in loader:
+            d.metadata.update(extra)
+        docs.extend(loader)
     return docs
 
 def chunk_documents(docs: list) -> list:
@@ -43,6 +54,7 @@ def build_vectorstore() -> Chroma:
         embedding=get_embeddings(),
         collection_name=COLLECTION,
         persist_directory=str(CHROMA_DIR),
+        collection_metadata={"hnsw:space": "cosine"},    # clean 0–1 relevance scores
     )
     print(f"Indexed {len(chunks)} chunks into Chroma at {CHROMA_DIR}")
     return vs
