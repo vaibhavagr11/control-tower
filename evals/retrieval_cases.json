@@ -1,0 +1,36 @@
+[
+  {"id": "sem-01", "type": "semantic", "query": "my order is almost two weeks late, what compensation can I get", "expected": ["POL-CX-002"]},
+  {"id": "sem-02", "type": "semantic", "query": "I suspect this refund request is fraudulent", "expected": ["POL-CX-003"]},
+  {"id": "sem-03", "type": "semantic", "query": "how many days do I have to return something I bought", "expected": ["POL-CX-004"]},
+  {"id": "sem-04", "type": "semantic", "query": "the item showed up broken and cracked", "expected": ["POL-CX-005"]},
+  {"id": "sem-05", "type": "semantic", "query": "I received the wrong product in my box", "expected": ["POL-CX-006"]},
+  {"id": "sem-06", "type": "semantic", "query": "my package was missing one of the parts", "expected": ["POL-CX-007"]},
+  {"id": "sem-07", "type": "semantic", "query": "is my electronics purchase covered for defects", "expected": ["POL-CX-008"]},
+  {"id": "sem-08", "type": "semantic", "query": "my credit card was declined when I tried to pay", "expected": ["POL-CX-009"]},
+  {"id": "sem-09", "type": "semantic", "query": "the customer disputed the charge with their bank", "expected": ["POL-CX-010"]},
+  {"id": "sem-10", "type": "semantic", "query": "when will my recurring plan be billed again", "expected": ["POL-CX-011"]},
+  {"id": "sem-11", "type": "semantic", "query": "I want to cancel my annual membership and get money back", "expected": ["POL-CX-012"]},
+  {"id": "sem-12", "type": "semantic", "query": "can I stop my order before it gets shipped", "expected": ["POL-CX-013"]},
+  {"id": "sem-13", "type": "semantic", "query": "do you match a cheaper price from another store", "expected": ["POL-CX-014"]},
+  {"id": "sem-14", "type": "semantic", "query": "my discount coupon won't apply at checkout", "expected": ["POL-CX-015"]},
+  {"id": "sem-15", "type": "semantic", "query": "does store credit on a gift card ever expire", "expected": ["POL-CX-016"]},
+  {"id": "sem-16", "type": "semantic", "query": "when do my rewards points expire", "expected": ["POL-CX-017"]},
+  {"id": "sem-17", "type": "semantic", "query": "who is responsible for paying import taxes overseas", "expected": ["POL-CX-019"]},
+  {"id": "sem-18", "type": "semantic", "query": "can I update the delivery address after placing the order", "expected": ["POL-CX-020"]},
+  {"id": "sem-19", "type": "semantic", "query": "tracking has not moved in over ten days, is it lost", "expected": ["POL-CX-021"]},
+  {"id": "sem-20", "type": "semantic", "query": "we want to place a bulk order of 200 units on net 30 terms", "expected": ["POL-CX-023"]},
+
+  {"id": "exact-01", "type": "exact", "query": "POL-CX-022", "expected": ["POL-CX-022"]},
+  {"id": "exact-02", "type": "exact", "query": "ERR-PAY-002", "expected": ["POL-CX-009", "POL-CX-011"]},
+  {"id": "exact-03", "type": "exact", "query": "ERR-PROMO-014 invalid code", "expected": ["POL-CX-015"]},
+  {"id": "exact-04", "type": "exact", "query": "REPLACE-PREFERRED rule", "expected": ["POL-CX-001"]},
+  {"id": "exact-05", "type": "exact", "query": "DELAY-COMP goodwill credit schedule", "expected": ["POL-CX-002"]},
+  {"id": "exact-06", "type": "exact", "query": "are CLR- clearance items returnable", "expected": ["POL-CX-004"]},
+
+  {"id": "ambig-01", "type": "ambiguous", "query": "my package says delivered but I never received it", "expected": ["POL-CX-001", "POL-CX-022", "POL-CX-003"]},
+  {"id": "ambig-02", "type": "ambiguous", "query": "I want a refund for an item that did not arrive", "expected": ["POL-CX-001", "POL-CX-022"]},
+
+  {"id": "junk-01", "type": "junk", "query": "how do I reset my email password", "expected": []},
+  {"id": "junk-02", "type": "junk", "query": "what are your office holiday hours", "expected": []},
+  {"id": "junk-03", "type": "junk", "query": "do you sell birthday cakes", "expected": []}
+]
