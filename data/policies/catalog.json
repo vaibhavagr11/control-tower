@@ -1,0 +1,177 @@
+{
+  "POL-CX-001_Refund_and_Replacement_Policy.pdf": {
+    "doc_id": "POL-CX-001",
+    "policy_type": "refund",
+    "version": "1.0",
+    "status": "active",
+    "title": "Refund & Replacement Policy"
+  },
+  "POL-CX-002_Shipping_Delay_and_Compensation_Policy.pdf": {
+    "doc_id": "POL-CX-002",
+    "policy_type": "delay",
+    "version": "1.0",
+    "status": "active",
+    "title": "Shipping Delay & Compensation Policy"
+  },
+  "POL-CX-003_Fraud_Review_Policy.pdf": {
+    "doc_id": "POL-CX-003",
+    "policy_type": "fraud",
+    "version": "1.0",
+    "status": "active",
+    "title": "Fraud Review Policy"
+  },
+  "POL-CX-004_Returns_and_Exchanges_Policy.pdf": {
+    "doc_id": "POL-CX-004",
+    "policy_type": "returns",
+    "version": "2.1",
+    "status": "active",
+    "title": "Returns & Exchanges Policy"
+  },
+  "POL-CX-005_Damaged_and_Defective_Items_Policy.pdf": {
+    "doc_id": "POL-CX-005",
+    "policy_type": "damaged",
+    "version": "1.3",
+    "status": "active",
+    "title": "Damaged & Defective Items Policy"
+  },
+  "POL-CX-006_Wrong_Item_Received_Policy.pdf": {
+    "doc_id": "POL-CX-006",
+    "policy_type": "wrong_item",
+    "version": "1.0",
+    "status": "active",
+    "title": "Wrong Item Received Policy"
+  },
+  "POL-CX-007_Missing_Parts_and_Accessories_Policy.pdf": {
+    "doc_id": "POL-CX-007",
+    "policy_type": "missing_parts",
+    "version": "1.0",
+    "status": "active",
+    "title": "Missing Parts & Accessories Policy"
+  },
+  "POL-CX-008_Warranty_Coverage_Policy.pdf": {
+    "doc_id": "POL-CX-008",
+    "policy_type": "warranty",
+    "version": "3.0",
+    "status": "active",
+    "title": "Warranty Coverage Policy"
+  },
+  "POL-CX-009_Payment_Failure_and_Declines_Policy.pdf": {
+    "doc_id": "POL-CX-009",
+    "policy_type": "payment",
+    "version": "1.2",
+    "status": "active",
+    "title": "Payment Failure & Declines Policy"
+  },
+  "POL-CX-010_Chargeback_Handling_Policy.pdf": {
+    "doc_id": "POL-CX-010",
+    "policy_type": "payment",
+    "version": "1.1",
+    "status": "active",
+    "title": "Chargeback Handling Policy"
+  },
+  "POL-CX-011_Subscription_Billing_Policy.pdf": {
+    "doc_id": "POL-CX-011",
+    "policy_type": "subscription",
+    "version": "1.0",
+    "status": "active",
+    "title": "Subscription Billing Policy"
+  },
+  "POL-CX-012_Subscription_Cancellation_Policy.pdf": {
+    "doc_id": "POL-CX-012",
+    "policy_type": "subscription",
+    "version": "1.0",
+    "status": "active",
+    "title": "Subscription Cancellation Policy"
+  },
+  "POL-CX-013_Order_Cancellation_Policy.pdf": {
+    "doc_id": "POL-CX-013",
+    "policy_type": "cancellation",
+    "version": "1.0",
+    "status": "active",
+    "title": "Order Cancellation Policy"
+  },
+  "POL-CX-014_Price_Match_Policy.pdf": {
+    "doc_id": "POL-CX-014",
+    "policy_type": "price_match",
+    "version": "1.0",
+    "status": "active",
+    "title": "Price Match Policy"
+  },
+  "POL-CX-015_Promotional_Code_and_Discount_Policy.pdf": {
+    "doc_id": "POL-CX-015",
+    "policy_type": "promotions",
+    "version": "1.4",
+    "status": "active",
+    "title": "Promotional Code & Discount Policy"
+  },
+  "POL-CX-016_Gift_Card_Policy.pdf": {
+    "doc_id": "POL-CX-016",
+    "policy_type": "gift_card",
+    "version": "1.0",
+    "status": "active",
+    "title": "Gift Card Policy"
+  },
+  "POL-CX-017_Loyalty_Points_Policy.pdf": {
+    "doc_id": "POL-CX-017",
+    "policy_type": "loyalty",
+    "version": "2.0",
+    "status": "active",
+    "title": "Loyalty Points Policy"
+  },
+  "POL-CX-018_International_Shipping_Policy.pdf": {
+    "doc_id": "POL-CX-018",
+    "policy_type": "international",
+    "version": "1.1",
+    "status": "active",
+    "title": "International Shipping Policy"
+  },
+  "POL-CX-019_Customs_and_Duties_Policy.pdf": {
+    "doc_id": "POL-CX-019",
+    "policy_type": "international",
+    "version": "1.0",
+    "status": "active",
+    "title": "Customs & Duties Policy"
+  },
+  "POL-CX-020_Address_Change_and_Reshipment_Policy.pdf": {
+    "doc_id": "POL-CX-020",
+    "policy_type": "shipping",
+    "version": "1.0",
+    "status": "active",
+    "title": "Address Change & Reshipment Policy"
+  },
+  "POL-CX-021_Lost_in_Transit_Policy.pdf": {
+    "doc_id": "POL-CX-021",
+    "policy_type": "delivery",
+    "version": "1.0",
+    "status": "active",
+    "title": "Lost in Transit Policy"
+  },
+  "POL-CX-022_Delivered_Not_Received_Policy.pdf": {
+    "doc_id": "POL-CX-022",
+    "policy_type": "delivery",
+    "version": "1.0",
+    "status": "active",
+    "title": "Delivered Not Received Policy"
+  },
+  "POL-CX-023_B2B_and_Bulk_Order_Policy.pdf": {
+    "doc_id": "POL-CX-023",
+    "policy_type": "b2b",
+    "version": "1.0",
+    "status": "active",
+    "title": "B2B & Bulk Order Policy"
+  },
+  "POL-CX-024_Holiday_and_Peak_Season_Policy.pdf": {
+    "doc_id": "POL-CX-024",
+    "policy_type": "seasonal",
+    "version": "1.0",
+    "status": "active",
+    "title": "Holiday & Peak Season Policy"
+  },
+  "POL-CX-025_Legacy_Refund_Policy.pdf": {
+    "doc_id": "POL-CX-025",
+    "policy_type": "refund",
+    "version": "0.9",
+    "status": "deprecated",
+    "title": "Legacy Refund Policy (Superseded)"
+  }
+}
