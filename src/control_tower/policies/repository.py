@@ -3,7 +3,9 @@ from langchain_chroma import Chroma
 from control_tower.policies.ingest import CHROMA_DIR, COLLECTION, get_embeddings
 from langchain_openai import ChatOpenAI
 from langchain_classic.retrievers.multi_query import MultiQueryRetriever
-from control_tower.config import CLASSIFIER_MODEL, OPENROUTER_API_KEY, OPENROUTER_BASE_URL
+from control_tower.config import CLASSIFIER_MODEL, OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RESOLVER_MODEL
+from langchain_classic.retrievers import ContextualCompressionRetriever
+from langchain_classic.retrievers.document_compressors import EmbeddingsFilter
 
 @lru_cache(maxsize=1)
 def _get_vectorstore() -> Chroma:
@@ -23,7 +25,6 @@ def _get_query_llm() -> ChatOpenAI:
         base_url=OPENROUTER_BASE_URL,
     )
 
-
 def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.30, policy_type: str | None = None,) -> str:
     """Multi-query retrieval over active policies, above a relevance threshold."""    
     conditions = [{"status": "active"}]
@@ -38,7 +39,14 @@ def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.30, pol
     )
 
     # Multi-query: LLM rephrases the query N ways, retrieves each, unions results.
-    retriever = MultiQueryRetriever.from_llm(retriever=base, llm=_get_query_llm())
+    mqr = MultiQueryRetriever.from_llm(retriever=base, llm=_get_query_llm())
+
+    compressor = EmbeddingsFilter(embeddings=get_embeddings(), k=3) 
+
+    retriever = ContextualCompressionRetriever(
+        base_compressor=compressor,
+        base_retriever=mqr,
+    )
     
     results = retriever.invoke(query)
     if not results:
