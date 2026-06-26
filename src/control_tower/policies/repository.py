@@ -39,8 +39,13 @@ def _get_active_chunks() -> tuple:
     chunks = chunk_documents(load_policy_documents())
     return tuple(c for c in chunks if c.metadata.get("status") == "active")
 
-def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.30, policy_type: str | None = None,) -> str:
-    """Multi-query retrieval over active policies, above a relevance threshold."""    
+def retrieve_policy_docs(
+        query: str,
+        k: int = 3,
+        score_threshold: float = 0.30,
+        policy_type: str | None = None,
+) -> list:
+    """Run the full hybrid → rerank → gate pipeline and return the surviving Documents."""
     conditions = [{"status": "active"}]
     if policy_type:
         conditions.append({"policy_type": policy_type})
@@ -68,7 +73,7 @@ def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.30, pol
         base_compressor=compressor,
         base_retriever=hybrid,
     )
-    
+
     results = retriever.invoke(query)
 
     # Relevance gate: BM25 always returns something, so score the finalists with the
@@ -77,6 +82,13 @@ def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.30, pol
         scores = _get_reranker().model.score([(query, d.page_content) for d in results])
         results = [d for d, s in zip(results, scores) if s >= RERANK_SCORE_MIN]
 
+    return results
+
+def retrieve_policies(query: str, k: int = 3, score_threshold: float = 0.30, policy_type: str | None = None,) -> str:
+    
+    """Format retrieved policy docs into the prompt string (used by the resolver)."""
+    results = retrieve_policy_docs(query, k, score_threshold, policy_type)
+    
     if not results:
         return "(no matching policy found)"
     
