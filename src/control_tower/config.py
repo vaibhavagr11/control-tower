@@ -21,3 +21,6 @@ HIGH_VALUE_THRESHOLD_USD = 150.0
 
 # -- Embeddings (local, no API key — runs via sentence-transformers) --
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Cross-encoder reranker (local, no API key)
+RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
