@@ -1,4 +1,11 @@
-"""Grade the retriever against evals/retrieval_cases.json — recall@k + MRR per type."""
+"""Grade the retriever against evals/retrieval_cases.json.
+
+Metrics:
+  - recall@1 / recall@3 / MRR  -> did we find the right DOCUMENT, ranked high?
+  - context completeness       -> does the retrieved TEXT contain the actual rule?
+  - junk no-match accuracy     -> did the gate return nothing on off-topic queries?
+"""
+
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -7,8 +14,8 @@ from control_tower.policies.repository import retrieve_policy_docs
 
 CASES = json.loads((Path(__file__).resolve().parents[1] / "evals" / "retrieval_cases.json").read_text())
 
+
 def unique_doc_ids(docs) -> list:
-    """Collapse retrieved chunks to an ordered list of unique doc_ids (rank preserved)."""
     seen, out = set(), []
     for d in docs:
         did = d.metadata.get("doc_id")
@@ -17,14 +24,27 @@ def unique_doc_ids(docs) -> list:
             out.append(did)
     return out
 
+
+def _norm(text: str) -> str:
+    return " ".join(text.split()).lower()
+
+
 def evaluate() -> None:
     agg = defaultdict(lambda: {"r1": 0, "r3": 0, "rr": 0.0, "n": 0})
     junk = {"correct": 0, "n": 0}
+    ctx = {"correct": 0, "n": 0}
 
     for c in CASES:
-        retrieved = unique_doc_ids(retrieve_policy_docs(c["query"]))
+        docs = retrieve_policy_docs(c["query"])
+        retrieved = unique_doc_ids(docs)
 
-        if c["type"] == "junk":                       # success = retrieved nothing
+        # context completeness: is the expected rule TEXT actually present?
+        if c.get("must_contain"):
+            ctx["n"] += 1
+            joined = _norm(" ".join(d.page_content for d in docs))
+            ctx["correct"] += int(_norm(c["must_contain"]) in joined)
+
+        if c["type"] == "junk":
             junk["n"] += 1
             junk["correct"] += int(len(retrieved) == 0)
             continue
@@ -45,7 +65,8 @@ def evaluate() -> None:
         a = agg[key]
         if a["n"]:
             print(f"{key:<12}{a['n']:>4}{a['r1']/a['n']:>10.2f}{a['r3']/a['n']:>10.2f}{a['rr']/a['n']:>8.2f}")
-    print(f"\njunk no-match accuracy: {junk['correct']}/{junk['n']} = {junk['correct']/junk['n']:.2f}\n")
+    print(f"\ncontext completeness (rule text present): {ctx['correct']}/{ctx['n']} = {ctx['correct']/ctx['n']:.2f}")
+    print(f"junk no-match accuracy:                   {junk['correct']}/{junk['n']} = {junk['correct']/junk['n']:.2f}\n")
 
 
 if __name__ == "__main__":
