@@ -1,12 +1,13 @@
 from functools import lru_cache
 from langchain_chroma import Chroma
-from control_tower.policies.ingest import CHROMA_DIR, COLLECTION, get_embeddings
+from control_tower.policies.ingest import CHROMA_DIR, COLLECTION, get_embeddings, load_policy_documents, chunk_documents
 from langchain_openai import ChatOpenAI
 from langchain_classic.retrievers.multi_query import MultiQueryRetriever
-from control_tower.config import CLASSIFIER_MODEL, OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RERANKER_MODEL
-from langchain_classic.retrievers import ContextualCompressionRetriever
+from control_tower.config import CLASSIFIER_MODEL, OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RERANKER_MODEL, RERANK_SCORE_MIN
+from langchain_classic.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+from langchain_community.retrievers import BM25Retriever
 
 
 @lru_cache(maxsize=1)
@@ -32,6 +33,12 @@ def _get_reranker() -> CrossEncoderReranker:
     model = HuggingFaceCrossEncoder(model_name=RERANKER_MODEL)
     return CrossEncoderReranker(model=model, top_n=3)
 
+@lru_cache(maxsize=1)
+def _get_active_chunks() -> tuple:
+    """Active-status chunks for BM25 (cached so PDFs are read once per process)."""
+    chunks = chunk_documents(load_policy_documents())
+    return tuple(c for c in chunks if c.metadata.get("status") == "active")
+
 def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.30, policy_type: str | None = None,) -> str:
     """Multi-query retrieval over active policies, above a relevance threshold."""    
     conditions = [{"status": "active"}]
@@ -48,14 +55,28 @@ def retrieve_policies(query: str, k: int = 4, score_threshold: float = 0.30, pol
     # Multi-query: LLM rephrases the query N ways, retrieves each, unions results.
     mqr = MultiQueryRetriever.from_llm(retriever=base, llm=_get_query_llm())
 
+    # Lexical side: exact-token matching (codes, IDs, SKUs).
+    bm25 = BM25Retriever.from_documents(list(_get_active_chunks()))
+    bm25.k = k
+
+    # Hybrid: fuse lexical (BM25) + semantic (multi-query dense) via reciprocal-rank fusion.
+    hybrid = EnsembleRetriever(retrievers= [bm25, mqr], weights=[0.5,0.5])
+
     compressor = _get_reranker() 
 
     retriever = ContextualCompressionRetriever(
         base_compressor=compressor,
-        base_retriever=mqr,
+        base_retriever=hybrid,
     )
     
     results = retriever.invoke(query)
+
+    # Relevance gate: BM25 always returns something, so score the finalists with the
+    # cross-encoder and drop weak matches — restores the "no matching policy" safety.
+    if results:
+        scores = _get_reranker().model.score([(query, d.page_content) for d in results])
+        results = [d for d, s in zip(results, scores) if s >= RERANK_SCORE_MIN]
+
     if not results:
         return "(no matching policy found)"
     
