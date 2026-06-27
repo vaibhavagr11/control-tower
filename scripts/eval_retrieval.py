@@ -42,7 +42,25 @@ def evaluate() -> None:
         if c.get("must_contain"):
             ctx["n"] += 1
             joined = _norm(" ".join(d.page_content for d in docs))
-            ctx["correct"] += int(_norm(c["must_contain"]) in joined)
+            is_complete = _norm(c["must_contain"]) in joined
+            ctx["correct"] += int(is_complete)
+
+            if not is_complete:
+                print("\n" + "=" * 100)
+                print("CONTEXT MISS")
+                print("Query:", c["query"])
+                print("Type:", c["type"])
+                print("Expected doc(s):", c["expected"])
+                print("Must contain:", c["must_contain"])
+                print("Retrieved doc IDs:", retrieved)
+                print("-" * 100)
+                for i, d in enumerate(docs, start=1):
+                    print(f"\nDoc #{i}")
+                    print("doc_id:", d.metadata.get("doc_id"))
+                    print("title:", d.metadata.get("title"))
+                    print("parent_id:", d.metadata.get("parent_id"))
+                    print("text preview:")
+                    print(d.page_content[:1000])
 
         if c["type"] == "junk":
             junk["n"] += 1

@@ -17,3 +17,8 @@ wheels/
 .ruff_cache/
 .chroma/
 .DS_Store
+
+# Local RAG indexes/docstores
+.chroma/
+.parent_docstore.json
+.child_docstore.json
