@@ -24,4 +24,4 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 # Cross-encoder reranker (local, no API key)
 RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-RERANK_SCORE_MIN = -10.0
+RERANK_SCORE_MIN = -8.0
