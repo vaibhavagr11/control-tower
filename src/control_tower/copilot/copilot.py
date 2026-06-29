@@ -22,9 +22,19 @@ def _build_resolve_input(state: dict) -> dict:
         "context": state["context"],
         "policies": state["policies"],
         "message": state["message"],
-        "chat_history": state.get("chat_history", [])
+        "chat_history": state.get("chat_history", []),
+        "customer_history": _format_customer_history(state.get("customer_history", [])),
     }
 
+def _format_customer_history(history: list[dict]) -> str:
+    """Render past-ticket summaries into a short, readable block for the resolver prompt."""
+    if not history:
+        return "(no prior tickets on file)"
+    lines = [
+        f"- {h['ticket_id']}: {h['issue_type']} -> {h['recommended_action']} ({h['gate_reason']})"
+        for h in history
+    ]
+    return "\n".join(lines)
 
 # The Phase 1 reasoning flow as a single composable Runnable.
 # Input: {"order_id", "message"} → output: a state dict with everything assembled.
@@ -49,14 +59,24 @@ class ResolutionCopilot:
         # In-memory ledger now; a database in production.
         self.feedback_log: list[dict] = []
         self.conversation_history: dict[str, list[BaseMessage]] = {}
+        self.customer_memory: dict[str, list[dict]] = {}
 
 
     @traceable(name="recommend_resolution", run_type="chain")
     def recommend(self, ticket_id: str, order_id: str, message: str) -> CopilotResult:
         history = self.conversation_history.get(ticket_id, [])
+
+        # Look up which customer this order belongs to, then pull their past-ticket history.
+        customer_id = retrieve_context(order_id).get("order", {}).get("customer_id")
+        customer_history = self.customer_memory.get(customer_id, []) if customer_id else []
+
         try:
-            
-            state = recommend_pipeline.invoke({"order_id": order_id, "message": message, "chat_history": history})
+            state = recommend_pipeline.invoke({
+                "order_id": order_id, 
+                "message": message, 
+                "chat_history": history, 
+                "customer_history": customer_history
+            })
             return_result = CopilotResult(
                 ticket_id=ticket_id,
                 classification=state["classification"],
@@ -68,6 +88,16 @@ class ResolutionCopilot:
             history.append(HumanMessage(content= message))
             history.append(AIMessage(content= return_result.recommendation.customer_message_draft))
             self.conversation_history[ticket_id] = history
+
+            if customer_id:
+                self.customer_memory.setdefault(customer_id, []).append(
+                    {
+                        "ticket_id": ticket_id,
+                        "issue_type": return_result.classification.issue_type,
+                        "recommended_action": return_result.recommendation.recommended_action,
+                        "gate_reason": return_result.gate_reason
+                    }
+                )
 
             return return_result
         

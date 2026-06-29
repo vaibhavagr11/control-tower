@@ -56,6 +56,7 @@ resolver_prompt = ChatPromptTemplate.from_messages(
             "human",
             """Issue type: {issue_type} (urgency: {urgency})
             Order & customer context:{context}
+            Customer's past tickets: {customer_history}
             Applicable policy rules:{policies}
             Customer's message: {message}
             Recommend the single best resolution.""",
