@@ -1,5 +1,5 @@
 from langsmith import traceable
-
+from control_tower.copilot import storage
 from control_tower.copilot.chains import classify_chain, resolve_chain, summarize_chain
 from control_tower.copilot.guardrails import evaluate_gate
 from control_tower.datalayer.mock_store import retrieve_context
@@ -88,10 +88,11 @@ class ResolutionCopilot:
     """Phase 1: classify → investigate → recommend. A human approves every action."""
 
     def __init__(self):
-        # In-memory ledger now; a database in production.
-        self.feedback_log: list[dict] = []
-        self.conversation_history: dict[str, list[BaseMessage]] = {}
-        self.customer_memory: dict[str, list[dict]] = {}
+        storage._init_db()
+        # Hydrate from disk so a restart doesn't wipe out what the copilot has learned.
+        self.feedback_log: list[dict] = storage.load_feedback_log()
+        self.conversation_history: dict[str, list[BaseMessage]] = storage.load_conversation_history()
+        self.customer_memory: dict[str, list[dict]] = storage.load_customer_memory()
 
 
     @traceable(name="recommend_resolution", run_type="chain")
@@ -121,16 +122,18 @@ class ResolutionCopilot:
             history.append(HumanMessage(content= message))
             history.append(AIMessage(content= return_result.recommendation.customer_message_draft))
             self.conversation_history[ticket_id] = history
+            storage.save_message(ticket_id, "human", message)
+            storage.save_message(ticket_id, "ai", return_result.recommendation.customer_message_draft)
 
             if customer_id:
-                self.customer_memory.setdefault(customer_id, []).append(
-                    {
-                        "ticket_id": ticket_id,
-                        "issue_type": return_result.classification.issue_type,
-                        "recommended_action": return_result.recommendation.recommended_action,
-                        "gate_reason": return_result.gate_reason
-                    }
-                )
+                customer_entry = {
+                    "ticket_id": ticket_id,
+                    "issue_type": return_result.classification.issue_type,
+                    "recommended_action": return_result.recommendation.recommended_action,
+                    "gate_reason": return_result.gate_reason,
+                }
+                self.customer_memory.setdefault(customer_id, []).append(customer_entry)
+                storage.save_customer_entry(customer_id, customer_entry)
 
             return return_result
         
@@ -171,6 +174,7 @@ class ResolutionCopilot:
             "note": note,
         }
         self.feedback_log.append(entry)
+        storage.save_feedback_entry(entry)
         return entry
     
     def accuracy(self) -> Optional[float]:
