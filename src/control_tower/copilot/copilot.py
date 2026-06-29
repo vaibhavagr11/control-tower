@@ -11,7 +11,7 @@ from control_tower.schemas import (
 )
 from typing import Literal, Optional
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, trim_messages
 
 def _build_resolve_input(state: dict) -> dict:
     """Map the accumulated state into the keys resolve_chain expects."""
@@ -35,6 +35,18 @@ def _format_customer_history(history: list[dict]) -> str:
         for h in history
     ]
     return "\n".join(lines)
+
+CONVERSATION_WINDOW_SIZE = 6    # keep the last 6 messages (~3 user/AI turn pairs)
+
+def _apply_window(history: list[BaseMessage]) -> list[BaseMessage]:
+    """Cap how much chat history reaches the model — keep only the most recent turns."""
+    return trim_messages(
+        history,
+        strategy= "last",
+        token_counter=len,
+        max_tokens=CONVERSATION_WINDOW_SIZE,
+        start_on="human",
+    )
 
 # The Phase 1 reasoning flow as a single composable Runnable.
 # Input: {"order_id", "message"} → output: a state dict with everything assembled.
@@ -65,6 +77,7 @@ class ResolutionCopilot:
     @traceable(name="recommend_resolution", run_type="chain")
     def recommend(self, ticket_id: str, order_id: str, message: str) -> CopilotResult:
         history = self.conversation_history.get(ticket_id, [])
+        windowed_history = _apply_window(history)
 
         # Look up which customer this order belongs to, then pull their past-ticket history.
         customer_id = retrieve_context(order_id).get("order", {}).get("customer_id")
@@ -74,7 +87,7 @@ class ResolutionCopilot:
             state = recommend_pipeline.invoke({
                 "order_id": order_id, 
                 "message": message, 
-                "chat_history": history, 
+                "chat_history": windowed_history, 
                 "customer_history": customer_history
             })
             return_result = CopilotResult(
