@@ -21,7 +21,7 @@ classifier_prompt = ChatPromptTemplate.from_messages(
             Classify the issue into exactly one category and rate its urgency. 
             Pick the single best-fit category; use 'other' only when nothing fits.""",
         ),
-        MessagesPlaceholder("chat_histroy", optional= True),
+        MessagesPlaceholder("chat_history", optional= True),
         ("human", "Ticket message:\n{message}"),
     ]
 )
@@ -65,3 +65,24 @@ resolver_prompt = ChatPromptTemplate.from_messages(
 )
 
 resolve_chain = resolver_prompt | resolver_llm
+
+summarizer_llm = ChatOpenAI(
+    model= CLASSIFIER_MODEL,
+    api_key= OPENROUTER_API_KEY,
+    base_url=OPENROUTER_BASE_URL,
+    reasoning_effort="low",
+)
+
+summarizer_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """Summarize this customer support conversation in 1-2 short sentences.
+            Preserve any specific facts, requests, or constraints the customer mentioned —
+            don't just say "customer had an issue".""",
+        ),
+        ("human", "{conversation}"),
+    ]
+)
+
+summarize_chain = summarizer_prompt | summarizer_llm

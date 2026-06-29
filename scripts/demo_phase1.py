@@ -1,6 +1,6 @@
 """Phase 1 demo: the Resolution Copilot recommends, a human approves."""
 
-from control_tower.copilot.copilot import ResolutionCopilot
+from control_tower.copilot.copilot import ResolutionCopilot, _apply_window, CONVERSATION_WINDOW_SIZE, _build_history_for_model
 from control_tower.schemas import CopilotResult
 
 
@@ -78,6 +78,46 @@ def main() -> None:
     )
     _print_result(r_repeat)
 
+    # Windowed memory check: push T-1's history past the cap and confirm
+    # the model only ever sees the most recent messages, even though the
+    # full history keeps growing in storage.
+    print("\n" + "-" * 64)
+    print("WINDOWED MEMORY CHECK (push T-1 past the window cap)")
+    bot.recommend(ticket_id="T-1", order_id="ORD-5001",
+                  message="Wait, actually it's missing after all, sorry for the confusion.")
+    bot.recommend(ticket_id="T-1", order_id="ORD-5001",
+                  message="Can you just send a replacement instead of a refund?")
+
+    full_history = bot.conversation_history["T-1"]
+    windowed = _apply_window(full_history)
+    print(f"  Full stored history : {len(full_history)} messages")
+    print(f"  Windowed view       : {len(windowed)} messages (cap = {CONVERSATION_WINDOW_SIZE})")
+    print("  Windowed messages sent to the model:")
+    for m in windowed:
+        print(f"    [{m.type}] {m.content}")
+
+    # Summary memory check: an important early detail should survive even
+    # after it ages out of the raw window — preserved as a short summary instead.
+    print("\n" + "-" * 64)
+    print("SUMMARY MEMORY CHECK (T-50: early detail should survive window overflow)")
+    bot.recommend(ticket_id="T-50", order_id="ORD-5003",
+                  message="Before anything else: I already tried unplugging and replugging the keyboard twice, it didn't help.")
+    bot.recommend(ticket_id="T-50", order_id="ORD-5003",
+                  message="Also some of the keys feel sticky.")
+    bot.recommend(ticket_id="T-50", order_id="ORD-5003",
+                  message="It's been almost two weeks now since I ordered it.")
+    bot.recommend(ticket_id="T-50", order_id="ORD-5003",
+                  message="Can you just send a replacement?")
+
+    t50_history = bot.conversation_history["T-50"]
+    model_history = _build_history_for_model(t50_history)
+    print(f"  Full stored history : {len(t50_history)} messages")
+    print(f"  Sent to model       : {len(model_history)} messages")
+    print("  What the model actually saw:")
+    for m in model_history:
+        print(f"    [{m.type}] {m.content}")
+    
+    
     print("\n" + "=" * 64)
     print("Phase 1 Complete.")
     print("=" * 64)
