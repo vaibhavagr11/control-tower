@@ -1,6 +1,6 @@
 from langsmith import traceable
 
-from control_tower.copilot.chains import classify_chain, resolve_chain
+from control_tower.copilot.chains import classify_chain, resolve_chain, summarize_chain
 from control_tower.copilot.guardrails import evaluate_gate
 from control_tower.datalayer.mock_store import retrieve_context
 from control_tower.policies.repository import retrieve_policies
@@ -11,7 +11,7 @@ from control_tower.schemas import (
 )
 from typing import Literal, Optional
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, trim_messages
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, trim_messages, SystemMessage
 
 def _build_resolve_input(state: dict) -> dict:
     """Map the accumulated state into the keys resolve_chain expects."""
@@ -48,6 +48,26 @@ def _apply_window(history: list[BaseMessage]) -> list[BaseMessage]:
         start_on="human",
     )
 
+def _split_window(history: list[BaseMessage]) -> tuple[list[BaseMessage], list[BaseMessage]]:
+    """Split history into (overflow, windowed) — what ages out vs. what the model sees raw."""
+    windowed = _apply_window(history)
+    overflow = history[: len(history) - len(windowed)]
+    return overflow, windowed
+
+def _summarize_overflow(overflow: list[BaseMessage]) -> str:
+    """Condense the messages that fell out of the window into a short blurb."""
+    conversation_text = "\n".join(f"{m.type}: {m.content}" for m in overflow)
+    summary = summarize_chain.invoke({"conversation": conversation_text})
+    return summary.content
+
+def _build_history_for_model(history: list[BaseMessage]) -> list[BaseMessage]:
+    """What actually reaches the model: a short summary of older turns (if any) + the recent window, raw."""
+    overflow, windowed = _split_window(history)
+    if not overflow:
+        return windowed
+    summary_text = _summarize_overflow(overflow)
+    return [SystemMessage(content=f"Summary of earlier conversation: {summary_text}")] + windowed
+
 # The Phase 1 reasoning flow as a single composable Runnable.
 # Input: {"order_id", "message"} → output: a state dict with everything assembled.
 recommend_pipeline = (
@@ -77,7 +97,7 @@ class ResolutionCopilot:
     @traceable(name="recommend_resolution", run_type="chain")
     def recommend(self, ticket_id: str, order_id: str, message: str) -> CopilotResult:
         history = self.conversation_history.get(ticket_id, [])
-        windowed_history = _apply_window(history)
+        windowed_history = _build_history_for_model(history)
 
         # Look up which customer this order belongs to, then pull their past-ticket history.
         customer_id = retrieve_context(order_id).get("order", {}).get("customer_id")
