@@ -62,6 +62,22 @@ def main() -> None:
     bot.record_decision(results[2], "edit", agent_action="offer_compensation", note="added store credit")
     print(f"  decisions logged: {len(bot.feedback_log)} | acceptance rate: {bot.accuracy()}")
 
+    # Multi-session memory check: simulate a customer with a recent track record
+    # of repeat delivery-not-received claims, then see if a new ticket reflects it.
+    print("\n" + "-" * 64)
+    print("MULTI-SESSION MEMORY CHECK (repeat-claim pattern for C-100)")
+    bot.customer_memory["C-100"] = [
+        {"ticket_id": "T-90", "issue_type": "delivery_not_received",
+         "recommended_action": "send_replacement", "gate_reason": "model confidence is 'medium'"},
+        {"ticket_id": "T-91", "issue_type": "delivery_not_received",
+         "recommended_action": "issue_refund", "gate_reason": "model confidence is 'medium'"},
+    ]
+    r_repeat = bot.recommend(
+        ticket_id="T-92", order_id="ORD-5001",
+        message="My order never arrived again, please refund me.",
+    )
+    _print_result(r_repeat)
+
     print("\n" + "=" * 64)
     print("Phase 1 Complete.")
     print("=" * 64)
