@@ -41,6 +41,19 @@ def main() -> None:
         print("-" * 64)
         _print_result(r)
 
+    # Multi-turn memory sanity check — same ticket_id as T-1, sent as a follow-up.
+    print("\n" + "-" * 64)
+    print("MULTI-TURN MEMORY CHECK (follow-up on T-1)")
+    r_followup = bot.recommend(
+        ticket_id="T-1", order_id="ORD-5001",
+        message="Actually never mind, I just found it — my neighbor had it.",
+    )
+    _print_result(r_followup)
+
+    print("\nStored history for T-1:")
+    for m in bot.conversation_history["T-1"]:
+        print(f"  [{m.type}] {m.content}")
+
     # Simulate a human agent reviewing the queue.
     print("\n" + "-" * 64)
     print("HUMAN-IN-THE-LOOP: agent decisions")
