@@ -11,6 +11,7 @@ from control_tower.schemas import (
 )
 from typing import Literal, Optional
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
 def _build_resolve_input(state: dict) -> dict:
     """Map the accumulated state into the keys resolve_chain expects."""
@@ -21,6 +22,7 @@ def _build_resolve_input(state: dict) -> dict:
         "context": state["context"],
         "policies": state["policies"],
         "message": state["message"],
+        "chat_history": state.get("chat_history", [])
     }
 
 
@@ -46,20 +48,29 @@ class ResolutionCopilot:
     def __init__(self):
         # In-memory ledger now; a database in production.
         self.feedback_log: list[dict] = []
+        self.conversation_history: dict[str, list[BaseMessage]] = {}
 
 
     @traceable(name="recommend_resolution", run_type="chain")
     def recommend(self, ticket_id: str, order_id: str, message: str) -> CopilotResult:
+        history = self.conversation_history.get(ticket_id, [])
         try:
             
-            state = recommend_pipeline.invoke({"order_id": order_id, "message": message})
-            return CopilotResult(
+            state = recommend_pipeline.invoke({"order_id": order_id, "message": message, "chat_history": history})
+            return_result = CopilotResult(
                 ticket_id=ticket_id,
                 classification=state["classification"],
                 recommendation=state["recommendation"],
                 requires_human_approval=True,   # Phase 1: always
                 gate_reason=evaluate_gate(state["context"], state["recommendation"]),
             )
+
+            history.append(HumanMessage(content= message))
+            history.append(AIMessage(content= return_result.recommendation.customer_message_draft))
+            self.conversation_history[ticket_id] = history
+
+            return return_result
+        
         except Exception as e:
             # Graceful degradation: hand the ticket to a human instead of crashing.
             return CopilotResult(
