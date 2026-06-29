@@ -1,6 +1,6 @@
 """Phase 1 demo: the Resolution Copilot recommends, a human approves."""
 
-from control_tower.copilot.copilot import ResolutionCopilot, _apply_window, CONVERSATION_WINDOW_SIZE
+from control_tower.copilot.copilot import ResolutionCopilot, _apply_window, CONVERSATION_WINDOW_SIZE, _build_history_for_model
 from control_tower.schemas import CopilotResult
 
 
@@ -96,6 +96,28 @@ def main() -> None:
     for m in windowed:
         print(f"    [{m.type}] {m.content}")
 
+    # Summary memory check: an important early detail should survive even
+    # after it ages out of the raw window — preserved as a short summary instead.
+    print("\n" + "-" * 64)
+    print("SUMMARY MEMORY CHECK (T-50: early detail should survive window overflow)")
+    bot.recommend(ticket_id="T-50", order_id="ORD-5003",
+                  message="Before anything else: I already tried unplugging and replugging the keyboard twice, it didn't help.")
+    bot.recommend(ticket_id="T-50", order_id="ORD-5003",
+                  message="Also some of the keys feel sticky.")
+    bot.recommend(ticket_id="T-50", order_id="ORD-5003",
+                  message="It's been almost two weeks now since I ordered it.")
+    bot.recommend(ticket_id="T-50", order_id="ORD-5003",
+                  message="Can you just send a replacement?")
+
+    t50_history = bot.conversation_history["T-50"]
+    model_history = _build_history_for_model(t50_history)
+    print(f"  Full stored history : {len(t50_history)} messages")
+    print(f"  Sent to model       : {len(model_history)} messages")
+    print("  What the model actually saw:")
+    for m in model_history:
+        print(f"    [{m.type}] {m.content}")
+    
+    
     print("\n" + "=" * 64)
     print("Phase 1 Complete.")
     print("=" * 64)
