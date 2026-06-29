@@ -1,4 +1,4 @@
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 from control_tower.config import CLASSIFIER_MODEL, OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RESOLVER_MODEL
@@ -21,6 +21,7 @@ classifier_prompt = ChatPromptTemplate.from_messages(
             Classify the issue into exactly one category and rate its urgency. 
             Pick the single best-fit category; use 'other' only when nothing fits.""",
         ),
+        MessagesPlaceholder("chat_histroy", optional= True),
         ("human", "Ticket message:\n{message}"),
     ]
 )
@@ -50,6 +51,7 @@ resolver_prompt = ChatPromptTemplate.from_messages(
             - Be honest about uncertainty: set confidence to 'low' when context is thin or conflicting.
             - Draft a warm, concise message for the agent to send the customer on approval.""",
         ),
+        MessagesPlaceholder("chat_history", optional=True),
         (
             "human",
             """Issue type: {issue_type} (urgency: {urgency})
