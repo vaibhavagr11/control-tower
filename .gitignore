@@ -22,3 +22,6 @@ wheels/
 .chroma/
 .parent_docstore.json
 .child_docstore.json
+
+# Local copilot memory store
+data/control_tower.db
