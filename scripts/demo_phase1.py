@@ -1,6 +1,6 @@
 """Phase 1 demo: the Resolution Copilot recommends, a human approves."""
 
-from control_tower.copilot.copilot import ResolutionCopilot
+from control_tower.copilot.copilot import ResolutionCopilot, _apply_window, CONVERSATION_WINDOW_SIZE
 from control_tower.schemas import CopilotResult
 
 
@@ -77,6 +77,24 @@ def main() -> None:
         message="My order never arrived again, please refund me.",
     )
     _print_result(r_repeat)
+
+    # Windowed memory check: push T-1's history past the cap and confirm
+    # the model only ever sees the most recent messages, even though the
+    # full history keeps growing in storage.
+    print("\n" + "-" * 64)
+    print("WINDOWED MEMORY CHECK (push T-1 past the window cap)")
+    bot.recommend(ticket_id="T-1", order_id="ORD-5001",
+                  message="Wait, actually it's missing after all, sorry for the confusion.")
+    bot.recommend(ticket_id="T-1", order_id="ORD-5001",
+                  message="Can you just send a replacement instead of a refund?")
+
+    full_history = bot.conversation_history["T-1"]
+    windowed = _apply_window(full_history)
+    print(f"  Full stored history : {len(full_history)} messages")
+    print(f"  Windowed view       : {len(windowed)} messages (cap = {CONVERSATION_WINDOW_SIZE})")
+    print("  Windowed messages sent to the model:")
+    for m in windowed:
+        print(f"    [{m.type}] {m.content}")
 
     print("\n" + "=" * 64)
     print("Phase 1 Complete.")
