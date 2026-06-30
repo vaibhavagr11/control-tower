@@ -67,7 +67,11 @@ class ResolutionCopilot:
                 "order_id": order_id, 
                 "message": message, 
                 "chat_history": windowed_history, 
-                "customer_history": customer_history
+                "customer_history": customer_history,
+                "retry_count": 0,
+                "clarification_count": 0,
+                "action_result": {},
+                "clarification_question": "",
             })
             return_result = CopilotResult(
                 ticket_id=ticket_id,
