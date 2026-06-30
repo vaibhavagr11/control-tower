@@ -1,40 +1,15 @@
 from langsmith import traceable
 from control_tower.copilot import storage
-from control_tower.copilot.chains import classify_chain, resolve_chain, summarize_chain
-from control_tower.copilot.guardrails import evaluate_gate
+from control_tower.copilot.chains import summarize_chain
+from control_tower.copilot.graph import recommend_graph
 from control_tower.datalayer.mock_store import retrieve_context
-from control_tower.policies.repository import retrieve_policies
 from control_tower.schemas import (
     CopilotResult,
     IssueClassification,
     ResolutionRecommendation,
 )
 from typing import Literal, Optional
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, trim_messages, SystemMessage
-
-def _build_resolve_input(state: dict) -> dict:
-    """Map the accumulated state into the keys resolve_chain expects."""
-    c = state["classification"]
-    return {
-        "issue_type": c.issue_type,
-        "urgency": c.urgency,
-        "context": state["context"],
-        "policies": state["policies"],
-        "message": state["message"],
-        "chat_history": state.get("chat_history", []),
-        "customer_history": _format_customer_history(state.get("customer_history", [])),
-    }
-
-def _format_customer_history(history: list[dict]) -> str:
-    """Render past-ticket summaries into a short, readable block for the resolver prompt."""
-    if not history:
-        return "(no prior tickets on file)"
-    lines = [
-        f"- {h['ticket_id']}: {h['issue_type']} -> {h['recommended_action']} ({h['gate_reason']})"
-        for h in history
-    ]
-    return "\n".join(lines)
 
 CONVERSATION_WINDOW_SIZE = 6    # keep the last 6 messages (~3 user/AI turn pairs)
 
@@ -67,23 +42,6 @@ def _build_history_for_model(history: list[BaseMessage]) -> list[BaseMessage]:
         return windowed
     summary_text = _summarize_overflow(overflow)
     return [SystemMessage(content=f"Summary of earlier conversation: {summary_text}")] + windowed
-
-# The Phase 1 reasoning flow as a single composable Runnable.
-# Input: {"order_id", "message"} → output: a state dict with everything assembled.
-recommend_pipeline = (
-    RunnablePassthrough.assign(
-        classification = classify_chain,
-        context = RunnableLambda(lambda s: retrieve_context(s["order_id"])),
-    )
-    | RunnablePassthrough.assign(
-        policies=RunnableLambda(lambda s: retrieve_policies(f"{s['classification'].issue_type}: {s['message']}")),
-    )
-    | RunnablePassthrough.assign(
-        recommendation=RunnableLambda(_build_resolve_input) | resolve_chain,
-    )
-)
-
-
 class ResolutionCopilot:
     """Phase 1: classify → investigate → recommend. A human approves every action."""
 
@@ -105,7 +63,7 @@ class ResolutionCopilot:
         customer_history = self.customer_memory.get(customer_id, []) if customer_id else []
 
         try:
-            state = recommend_pipeline.invoke({
+            state = recommend_graph.invoke({
                 "order_id": order_id, 
                 "message": message, 
                 "chat_history": windowed_history, 
@@ -116,7 +74,7 @@ class ResolutionCopilot:
                 classification=state["classification"],
                 recommendation=state["recommendation"],
                 requires_human_approval=True,   # Phase 1: always
-                gate_reason=evaluate_gate(state["context"], state["recommendation"]),
+                gate_reason=state["gate_reason"],
             )
 
             history.append(HumanMessage(content= message))
