@@ -2,6 +2,32 @@
 
 All notable changes to the Customer Operations Control Tower, one phase at a time.
 
+## [Phase 1.6] - Autonomous Action-Taking
+### Added
+- Multipath action routing: `action_router_node` (no-op hub) + `route_by_action` dispatches to `refund_node`, `replacement_node`, `compensation_node`, `return_label_node`, or `clarification_node` based on `recommended_action`
+- Action retry loop: `verify_node` checks `action_result.success`; on failure increments `retry_count` and loops back to `action_router`; falls through to communication after `MAX_ACTION_RETRIES=3` total attempts
+- Clarification loop: `clarification_node` asks the single most important missing question; `simulate_response_node` appends the customer reply to `state["message"]`; re-enters triage with augmented context up to `MAX_CLARIFICATIONS=2`, then hands off to communication (assisted path)
+- `clarification_chain` and `simulate_response_chain` in `chains.py` — targeted prompts for generating clarifying questions and simulating realistic customer replies
+- Mock action functions in `mock_store.py`: `process_refund` (fails on attempt 0, simulating a transient gateway timeout), `create_replacement_order` and `apply_compensation` (always succeed) — designed to exercise the retry loop
+- Test orders ORD-5004 (USB Cable, $12, low-risk) and ORD-5005 (Smart Speaker, $65) for autonomous and clarification test cases
+- `CopilotState` extended with `action_result`, `retry_count`, `clarification_count`, `clarification_question`
+- LangGraph `stream()` guard: `outputs = outputs or {}` handles no-update nodes (e.g. `action_router_node` returning `{}`, which LangGraph represents as `None` in stream output); `stream_mode="updates"` made explicit
+### Notes / learnings
+- `action_router_node` is a deliberate no-op — it exists purely as a stable routing hub so LangGraph conditional edges have a fixed source node for both initial dispatch and retries; this is a common pattern in production LangGraph graphs
+- LangGraph `stream_mode="updates"` yields `{node_name: updates_dict}` per step; when a node returns `{}` (no state changes), the value is `None` not `{}` — `if chunk is None` alone is insufficient, must also guard `outputs = outputs or {}`
+- Clarification loop re-enters `triage` (not `resolution` directly) so re-classification picks up the augmented message — ensures `issue_type` and `urgency` reflect the fuller context before the resolver sees it
+- Vague messages can hit `escalate` before reaching clarification if the resolver assigns `confidence=low`; this is correct behavior — the escalation signal from low confidence outweighs the clarification opportunity
+
+## [Phase 1.5] - Conditional Routing & Autonomy Tiers
+### Added
+- `route_by_tier` conditional edge routing `resolution` output to three lanes: `assisted` → communication (human approves), `autonomous` → action pipeline, `escalate` → escalation fast-path
+- `_determine_autonomy_tier`: escalates on `fraud_risk==high`, `confidence==low`, `order_value>300`, `(prior_claims>=3 AND account_age<30)`, or `recommended_action==escalate_to_human`; autonomous on `confidence==high AND fraud_risk==low AND order_value<100`; otherwise assisted
+- `escalation_node`: deterministic template message, no LLM — intentionally predictable so tone and content never leak internal fraud or risk reasoning to the customer
+- `communication_node` extended with `action_taken` / `action_details` context: past tense ("We've issued your refund") when an autonomous action succeeded, future tense ("We'll get this sorted") when pending human approval
+### Notes / learnings
+- Autonomy-tier logic lives in `_determine_autonomy_tier` (pure function), not in the resolver prompt — the LLM judges the situation, a deterministic function decides the tier, keeping it auditable
+- Escalation node is explicitly not LLM-generated: consistent tone and no risk of the model accidentally surfacing internal reasoning (fraud flags, account age) in the customer message
+
 ## [Phase 1.4] - Memory
 ### Added
 - Conversation memory: per-ticket chat history (`conversation_history`) threaded into both `classify_chain` and `resolve_chain` via `MessagesPlaceholder("chat_history")`
@@ -71,7 +97,9 @@ All notable changes to the Customer Operations Control Tower, one phase at a tim
 - LLM resilience: .with_retry() for transient rate limits, .with_fallbacks() to a backup model
 - Header-aware chunking (UnstructuredPDFLoader + MarkdownHeaderTextSplitter) to keep related rules in one chunk — partially covered by parent-child chunking (Phase 1.3), but that's size-based, not header-aware
 - Migrate off deprecated langchain-community PyPDFLoader
-- pytest tests: guardrail, retrieval, accuracy()
+- pytest tests: LangGraph-era test suite (StateGraph node unit tests + end-to-end routing assertions replacing the Phase 1 LCEL tests)
 - Prompt tuning: have the resolver weight repeat identical-issue-type claims from customer_history as a stronger fraud signal (currently wired but under-weighted at reasoning_effort="low")
 - Incremental/cached summary memory, instead of resummarizing the full overflow on every call
-- Phase 2: orchestration engine + specialized agents + scoped autonomy
+- Triage fast-path: immediately escalate clear-cut cases (e.g. fraud_risk signals detectable at classify time) before running the full investigation/policy pipeline
+- LangGraph checkpointers + reducers: replace storage.py with native LangGraph persistence; enables parallel nodes and accumulated state fields (Phase 2)
+- Phase 2: multi-agent orchestration with real tool calls (carrier APIs, payment processor, inventory) replacing mock_store
