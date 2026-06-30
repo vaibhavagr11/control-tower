@@ -136,6 +136,29 @@ def communication_node(state: CopilotState) -> dict:
     })
     return {"customer_message": result.content}
 
+def route_by_tier(state: CopilotState) -> str:
+    """Read autonomy_tier from state and return the next node name."""
+    return state["autonomy_tier"]
+
+def escalation_node(state: CopilotState) -> dict:
+    """Fast-path for tickets that need specialist handling.
+
+    Produces a consistent, deterministic escalation message — intentionally
+    not LLM-generated, so tone and content stay predictable and never leak
+    internal fraud/risk reasoning to the customer.
+
+    Phase 2.1: will also create a ticket in the specialist queue."""
+
+    context = state["context"]
+    customer_name = context.get("customer", {}).get("name", "")
+    greeting = f"Hi {customer_name} — " if customer_name else ""
+    customer_message = (
+        f"{greeting}I'm sorry for the trouble. "
+        "Your case needs a specialist's review and someone from our team "
+        "will follow up with you shortly with next steps."
+    )
+    return {"customer_message": customer_message}
+
 graph_builder = StateGraph(CopilotState)
 
 graph_builder.add_node("triage", triage_node)
@@ -143,12 +166,22 @@ graph_builder.add_node("investigation", investigation_node)
 graph_builder.add_node("policy", policy_node)
 graph_builder.add_node("resolution", resolution_node)
 graph_builder.add_node("communication", communication_node)
+graph_builder.add_node("escalation", escalation_node)
 
 graph_builder.add_edge(START, "triage")
 graph_builder.add_edge("triage", "investigation")
 graph_builder.add_edge("investigation", "policy")
 graph_builder.add_edge("policy", "resolution")
-graph_builder.add_edge("resolution", "communication")
+graph_builder.add_conditional_edges(
+    "resolution",
+    route_by_tier,
+    {
+        "assisted": "communication",
+        "autonomous": "communication",  # stub — Phase 2.1 will point this to action_node
+        "escalate": "escalation",
+    },
+)
 graph_builder.add_edge("communication", END)
+graph_builder.add_edge("escalation", END)
 
 recommend_graph = graph_builder.compile()
