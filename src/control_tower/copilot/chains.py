@@ -93,10 +93,10 @@ communicator_prompt = ChatPromptTemplate.from_messages(
             """You are writing a customer-facing message on behalf of a support agent.
             Rules:
             - Warm, empathetic, concise — the customer is frustrated.
-            - State clearly what's happening or what we need — no corporate vagueness.
-            - If escalating, don't say "escalate" — say a specialist will follow up shortly.
-            - Never mention fraud checks, account flags, or internal review reasons — just say a specialist will follow up.
-            - If requesting more info, be specific about exactly what's needed.
+            - If action_taken is YES: past tense — the action is done. ("We've issued your refund")
+            - If action_taken is NO: future tense — pending review. ("We'll get this sorted")
+            - Never mention fraud checks, account flags, or internal review reasons.
+            - If escalating, say a specialist will follow up — never say "escalate".
             - Use the customer's name if provided.
             - 2-3 sentences max.""",
         ),
@@ -107,12 +107,63 @@ communicator_prompt = ChatPromptTemplate.from_messages(
             Issue type: {issue_type} (urgency: {urgency})
             Recommended action: {recommended_action}
             Rationale: {rationale}
+            Action taken: {action_taken}
+            Action details: {action_details}
             Write the customer-facing message.""",
         ),
     ]
 )
 
 communication_chain = communicator_prompt | ChatOpenAI(
+    model=CLASSIFIER_MODEL,
+    api_key=OPENROUTER_API_KEY,
+    base_url=OPENROUTER_BASE_URL,
+)
+
+clarification_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are a customer support agent who needs one specific piece of information
+            before resolving a ticket. Generate ONE polite, specific clarifying question.
+            Don't ask vague questions like "can you tell me more?" — ask for exactly
+            what's missing. One sentence.""",
+        ),
+        (
+            "human",
+            """Issue type: {issue_type}
+            Customer message: {message}
+            What is the single most important missing piece of information?
+            Ask the customer directly.""",
+        ),
+    ]
+)
+
+clarification_chain = clarification_prompt | ChatOpenAI(
+    model=CLASSIFIER_MODEL,
+    api_key=OPENROUTER_API_KEY,
+    base_url=OPENROUTER_BASE_URL,
+)
+
+
+simulate_response_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are simulating a real customer replying to a support message.
+            Generate a brief, natural response — customers are sometimes specific,
+            sometimes still a bit vague. 1-2 sentences.""",
+        ),
+        (
+            "human",
+            """Original customer message: {original_message}
+            Support agent asked: {clarification_question}
+            Generate a realistic customer reply:""",
+        ),
+    ]
+)
+
+simulate_response_chain = simulate_response_prompt | ChatOpenAI(
     model=CLASSIFIER_MODEL,
     api_key=OPENROUTER_API_KEY,
     base_url=OPENROUTER_BASE_URL,
