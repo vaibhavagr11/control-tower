@@ -12,7 +12,7 @@ def _print_result(r: CopilotResult) -> None:
     print(f"  Policy     : {', '.join(rec.policy_citations) or '(none)'}")
     print(f"  Cost est.  : ${rec.estimated_cost_usd:.2f}")
     print(f"  Gate       : {r.gate_reason}")
-    print(f"  Draft      : {rec.customer_message_draft}")
+    print(f"  Draft      : {r.customer_message}")
 
 
 def main() -> None:

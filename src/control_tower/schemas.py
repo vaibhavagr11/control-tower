@@ -37,14 +37,11 @@ class ResolutionRecommendation(BaseModel):
         default=0.0, 
         description="What would be the estimated cost in USD for the recommended action."
         )
-    customer_message_draft: str = Field(
-        description="Message to be sent to the customer sharing how we are gonna " \
-        "resolve the issue."
-        )
     
 class CopilotResult(BaseModel):
     ticket_id: str
     classification: IssueClassification
     recommendation: ResolutionRecommendation
+    customer_message: str
     requires_human_approval: bool
     gate_reason: str
