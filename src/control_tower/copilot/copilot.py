@@ -75,13 +75,14 @@ class ResolutionCopilot:
                 recommendation=state["recommendation"],
                 requires_human_approval=True,   # Phase 1: always
                 gate_reason=state["gate_reason"],
+                customer_message=state["customer_message"],
             )
 
             history.append(HumanMessage(content= message))
-            history.append(AIMessage(content= return_result.recommendation.customer_message_draft))
+            history.append(AIMessage(content= return_result.customer_message))
             self.conversation_history[ticket_id] = history
             storage.save_message(ticket_id, "human", message)
-            storage.save_message(ticket_id, "ai", return_result.recommendation.customer_message_draft)
+            storage.save_message(ticket_id, "ai", return_result.customer_message)
 
             if customer_id:
                 customer_entry = {

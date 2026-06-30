@@ -48,8 +48,7 @@ resolver_prompt = ChatPromptTemplate.from_messages(
             - Cite the policy rule IDs you used in policy_citations.
             - Assess fraud risk from customer history (prior claims, account age) and order value.
             - If a policy requires human/fraud review, recommend 'escalate_to_human'.
-            - Be honest about uncertainty: set confidence to 'low' when context is thin or conflicting.
-            - Draft a warm, concise message for the agent to send the customer on approval.""",
+            - Be honest about uncertainty: set confidence to 'low' when context is thin or conflicting."""
         ),
         MessagesPlaceholder("chat_history", optional=True),
         (
@@ -86,3 +85,35 @@ summarizer_prompt = ChatPromptTemplate.from_messages(
 )
 
 summarize_chain = summarizer_prompt | summarizer_llm
+
+communicator_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are writing a customer-facing message on behalf of a support agent.
+            Rules:
+            - Warm, empathetic, concise — the customer is frustrated.
+            - State clearly what's happening or what we need — no corporate vagueness.
+            - If escalating, don't say "escalate" — say a specialist will follow up shortly.
+            - Never mention fraud checks, account flags, or internal review reasons — just say a specialist will follow up.
+            - If requesting more info, be specific about exactly what's needed.
+            - Use the customer's name if provided.
+            - 2-3 sentences max.""",
+        ),
+        (
+            "human",
+            """Customer message: {message}
+            Customer name: {customer_name}
+            Issue type: {issue_type} (urgency: {urgency})
+            Recommended action: {recommended_action}
+            Rationale: {rationale}
+            Write the customer-facing message.""",
+        ),
+    ]
+)
+
+communication_chain = communicator_prompt | ChatOpenAI(
+    model=CLASSIFIER_MODEL,
+    api_key=OPENROUTER_API_KEY,
+    base_url=OPENROUTER_BASE_URL,
+)
