@@ -2,7 +2,7 @@ from langsmith import traceable
 from control_tower.copilot import storage
 from control_tower.copilot.chains import summarize_chain
 from control_tower.copilot.graph import recommend_graph
-from control_tower.datalayer.mock_store import retrieve_context
+from control_tower.tools.oms import lookup_order
 from control_tower.schemas import (
     CopilotResult,
     IssueClassification,
@@ -59,7 +59,7 @@ class ResolutionCopilot:
         windowed_history = _build_history_for_model(history)
 
         # Look up which customer this order belongs to, then pull their past-ticket history.
-        customer_id = retrieve_context(order_id).get("order", {}).get("customer_id")
+        customer_id = lookup_order.invoke({"order_id": order_id}).get("order", {}).get("customer_id")
         customer_history = self.customer_memory.get(customer_id, []) if customer_id else []
 
         try:
@@ -101,7 +101,6 @@ class ResolutionCopilot:
             return return_result
         
         except Exception as e:
-            # Graceful degradation: hand the ticket to a human instead of crashing.
             return CopilotResult(
                 ticket_id=ticket_id,
                 classification=IssueClassification(
@@ -112,10 +111,10 @@ class ResolutionCopilot:
                     recommended_action="escalate_to_human",
                     rationale=f"The copilot could not process this ticket: {e}",
                     confidence="low",
-                    customer_message_draft="Thanks for reaching out — a specialist will follow up shortly.",
                 ),
                 requires_human_approval=True,
                 gate_reason="copilot error; escalated to human",
+                customer_message="Thanks for reaching out — a specialist will follow up shortly.",
             )
         
     
