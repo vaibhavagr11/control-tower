@@ -2,6 +2,39 @@
 
 All notable changes to the Customer Operations Control Tower, one phase at a time.
 
+## [Phase 2.2] - LangGraph Checkpointers
+### Added
+- `langgraph-checkpoint-sqlite` dependency
+- `copilot/checkpointer.py`: shared `SqliteSaver` instance backed by `data/control_tower.db` with `check_same_thread=False` for multi-call use
+- Graph compiled with checkpointer: every node's output is automatically persisted to SQLite after each run — no manual state management
+- `recommend()` in `copilot.py` passes `config={"configurable": {"thread_id": ticket_id}}` on every `graph.invoke()` — each ticket is a persistent, replayable thread
+- `recommend_graph.get_state(config)` confirmed returning all 15 state fields after a run
+### Notes / learnings
+- `next: ()` (empty tuple) from `get_state()` confirms the graph ran to `END` cleanly — non-empty `next` would indicate an interrupted graph waiting for human input (the pattern we'll use in Phase 2.3 for assisted tickets)
+- LangGraph emits deserialization warnings for unregistered Pydantic types (`IssueClassification`, `ResolutionRecommendation`) when reading checkpoints — non-breaking in current version; proper fix is registering schemas with msgpack at config level, deferred to production hardening phase
+- `storage.py` conversation/customer history functions are now superseded by the checkpointer for graph state persistence; kept for feedback log which is not part of graph state
+
+## [Phase 2.1] - Tool Layer & Copilot Refactor
+### Added
+- `tools/` package: `oms.py`, `carrier.py`, `payment.py`, `data.py`
+- OMS tools: `lookup_order`, `lookup_orders_by_customer`, `cancel_order`, `create_replacement_order` (with `item_skus` and `company`/`customer_exchange` reason type)
+- Carrier tools: `get_tracking_status`, `generate_return_label` (prepaid for company fault, customer-pays instructions for customer reason)
+- Payment tool: `process_refund` with `standard` (return required) and `forced` (no return required) types; idempotency guard via `REFUND_LOG`
+- Uniqlo-realistic mock data: multi-item clothing orders with SKU/size/color/qty/unit_price, customer profiles with `return_history` and `order_history`, carrier tracking event logs
+- Return reason logic: `company` fault (wrong item, damaged, not received) → prepaid label + forced refund; `customer` reason (changed mind, wrong size) → customer pays return + standard refund
+- `create_replacement_order` handles both free company replacements and charged customer exchanges; operates on specific `item_skus` not the whole order
+### Changed
+- `copilot/` refactored into `nodes/` package — one file per cognitive responsibility: `triage.py`, `investigation.py`, `policy.py`, `resolution.py`, `communication.py`, `escalation.py`, `actions.py`, `clarification.py`
+- `graph.py` reduced to wiring only (~50 lines); `state.py` and `routing.py` extracted as standalone modules
+- `investigation_node` now calls `lookup_order` tool instead of `retrieve_context` from mock_store
+- Action nodes derive `return_reason_type` from `classification.issue_type`; `item_skus` default to all SKUs in the order
+- `_determine_autonomy_tier` now computes `account_age` from `member_since` date string instead of a pre-stored field
+- `offer_compensation` removed from action routing — compensation maps to `issue_refund` at resolver level (loyalty system removed)
+### Notes / learnings
+- Tool interface (input/output schema) is the stable contract across enterprises — the implementation behind each tool changes per client; this is how Decagon ships the same agent to different retailers
+- Return reason type (`company` vs `customer`) is derived deterministically from `classification.issue_type` — keeps the decision auditable and out of the LLM's hands
+- `action_router_node` returning `{}` (no state update) is represented as `None` in LangGraph's stream output — requires `outputs = outputs or {}` guard
+
 ## [Phase 1.4] - Memory
 ### Added
 - Conversation memory: per-ticket chat history (`conversation_history`) threaded into both `classify_chain` and `resolve_chain` via `MessagesPlaceholder("chat_history")`

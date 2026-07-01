@@ -1,4 +1,3 @@
-from datetime import date
 from typing import Literal
 
 from control_tower.copilot.chains import resolve_chain
@@ -16,34 +15,23 @@ def _format_customer_history(history: list[dict]) -> str:
     ]
     return "\n".join(lines)
 
-
-def _compute_account_age_days(member_since: str) -> int:
-    """Compute account age in days from member_since date string."""
-    if not member_since:
-        return 999
-    try:
-        joined = date.fromisoformat(member_since)
-        return (date.today() - joined).days
-    except ValueError:
-        return 999
-
-
 def _determine_autonomy_tier(
     context: dict,
     rec: ResolutionRecommendation,
 ) -> Literal["autonomous", "assisted", "escalate"]:
     order = context.get("order", {})
-    customer = context.get("customer", {})
+    risk = context.get("risk", {})
 
     order_value = order.get("value_usd", 0)
-    prior_claims = len(customer.get("return_history", []))
-    account_age = _compute_account_age_days(customer.get("member_since", ""))
+    risk_level = risk.get("risk_level", "low")
+    new_account = risk.get("new_account", False)
+    high_frequency = risk.get("high_frequency", False)
 
     if (
         rec.fraud_risk == "high"
         or rec.confidence == "low"
         or order_value > 300
-        or (prior_claims >= 3 and account_age < 30)
+        or (new_account and high_frequency)
         or rec.recommended_action == "escalate_to_human"
     ):
         return "escalate"
@@ -52,6 +40,7 @@ def _determine_autonomy_tier(
         rec.confidence == "high"
         and rec.fraud_risk == "low"
         and order_value < 100
+        and risk_level == "low"
     ):
         return "autonomous"
 
