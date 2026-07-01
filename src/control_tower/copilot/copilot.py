@@ -62,6 +62,8 @@ class ResolutionCopilot:
         customer_id = lookup_order.invoke({"order_id": order_id}).get("order", {}).get("customer_id")
         customer_history = self.customer_memory.get(customer_id, []) if customer_id else []
 
+        config = {"configurable": {"thread_id": ticket_id}}
+
         try:
             state = recommend_graph.invoke({
                 "order_id": order_id, 
@@ -72,7 +74,7 @@ class ResolutionCopilot:
                 "clarification_count": 0,
                 "action_result": {},
                 "clarification_question": "",
-            })
+            }, config=config)
             return_result = CopilotResult(
                 ticket_id=ticket_id,
                 classification=state["classification"],

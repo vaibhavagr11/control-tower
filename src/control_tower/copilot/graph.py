@@ -24,6 +24,7 @@ from control_tower.copilot.routing import (
     route_verify,
     route_after_clarification,
 )
+from control_tower.copilot.checkpointer import checkpointer
 
 # ─── Build graph ───────────────────────────────────────────────────────────────
 
@@ -89,4 +90,4 @@ graph_builder.add_conditional_edges(
 graph_builder.add_edge("communication", END)
 graph_builder.add_edge("escalation",    END)
 
-recommend_graph = graph_builder.compile()
+recommend_graph = graph_builder.compile(checkpointer=checkpointer)
