@@ -1,10 +1,17 @@
 from control_tower.copilot.state import CopilotState
-from control_tower.tools.oms import lookup_order
-
+from control_tower.copilot.nodes.investigation_agent import investigation_agent
 
 def investigation_node(state: CopilotState) -> dict:
-    """Gather all facts needed to resolve this ticket.
-    Calls the OMS to retrieve the full order and customer profile.
-    Phase 2 will extend this with parallel carrier and fraud checks."""
-    result = lookup_order.invoke({"order_id": state["order_id"]})
-    return {"context": result}
+    """Run the Investigation Agent subgraph.
+    Fetches order + customer (OMS), live tracking (carrier),
+    and computes fraud risk signals — then packages everything
+    into context for the policy and resolution nodes."""
+    result = investigation_agent.invoke({"order_id": state["order_id"]})
+    context = {
+        "order_id": state["order_id"],
+        "order": result["order"],
+        "customer": result["customer"],
+        "tracking": result["tracking"],
+        "risk": result["risk"],
+    }
+    return {"context": context}
